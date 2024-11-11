@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pedidos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet"> <!-- Ícones FontAwesome -->
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+            padding: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #007bff;
+        }
+
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input, button {
+            width: 100%;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .table-container {
+            margin-top: 30px;
+        }
+
+        .table th, .table td {
+            vertical-align: middle;
+        }
+
+        .table thead {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .action-buttons button {
+            margin: 0 5px;
+        }
+
+        #cancelOrderBtn {
+            background-color: #dc3545;
+        }
+
+        #cancelOrderBtn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Pedidos</h2>
+
+        <div class="form-container">
+            <form id="orderForm">
+                <div class="mb-3">
+                    <label for="customerName" class="form-label">Nome do Cliente:</label>
+                    <input type="text" class="form-control" id="customerName" placeholder="Nome do Cliente" required />
+                </div>
+                <div class="mb-3">
+                    <label for="itemName" class="form-label">Item:</label>
+                    <input type="text" class="form-control" id="itemName" placeholder="Nome do Item" required />
+                </div>
+                <div class="mb-3">
+                    <label for="itemQuantity" class="form-label">Quantidade:</label>
+                    <input type="number" class="form-control" id="itemQuantity" placeholder="Quantidade" min="1" required />
+                </div>
+                <button type="submit" class="btn btn-primary">Adicionar Item ao Pedido</button>
+                <button type="button" class="btn" id="cancelOrderBtn" style="display: none;">Cancelar</button>
+            </form>
+        </div>
+
+        <div class="table-container">
+            <table class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>Nome do Cliente</th>
+                        <th>Item</th>
+                        <th>Quantidade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script>
+        let pedidoAtual = null;
+
+        function displayOrders() {
+            fetch('http://localhost:3000/pedidos')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById("ordersTable");
+                    tbody.innerHTML = "";
+                    data.forEach((pedido) => {
+                        const row = document.createElement("tr");
+                        row.innerHTML = `
+                            <td>${pedido.nomeCliente}</td>
+                            <td>${pedido.item}</td>
+                            <td>${pedido.quantidade}</td>
+                            <td class="action-buttons">
+                                <button class="btn btn-warning btn-sm" onclick="editOrder(${pedido.id})"><i class="fas fa-edit"></i> Alterar</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteOrder(${pedido.id})"><i class="fas fa-trash-alt"></i> Remover</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Erro ao buscar pedidos:', error));
+        }
+
+        document.getElementById("orderForm").addEventListener("submit", function (event) {
+            event.preventDefault();
+            const pedido = {
+                nomeCliente: document.getElementById("customerName").value,
+                item: document.getElementById("itemName").value,
+                quantidade: parseInt(document.getElementById("itemQuantity").value),
+            };
+
+            if (pedidoAtual !== null) {
+                fetch(`http://localhost:3000/pedidos/${pedidoAtual}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pedido)
+                })
+                .then(response => response.json())
+                .then(() => {
+                    pedidoAtual = null;
+                    document.getElementById("cancelOrderBtn").style.display = "none";
+                    displayOrders();
+                    document.getElementById("orderForm").reset();
+                })
+                .catch(error => console.error('Erro ao atualizar pedido:', error));
+            } else {
+                fetch('http://localhost:3000/pedidos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pedido)
+                })
+                .then(response => response.json())
+                .then(() => {
+                    displayOrders();
+                    document.getElementById("orderForm").reset();
+                })
+                .catch(error => console.error('Erro ao inserir pedido:', error));
+            }
+        });
+
+        function editOrder(id) {
+            pedidoAtual = id;
+            fetch(`http://localhost:3000/pedidos/${id}`)
+                .then(response => response.json())
+                .then(pedido => {
+                    document.getElementById("customerName").value = pedido.nomeCliente;
+                    document.getElementById("itemName").value = pedido.item;
+                    document.getElementById("itemQuantity").value = pedido.quantidade;
+                    document.getElementById("cancelOrderBtn").style.display = "inline-block";
+                })
+                .catch(error => console.error('Erro ao buscar pedido para edição:', error));
+        }
+
+        function deleteOrder(id) {
+            fetch(`http://localhost:3000/pedidos/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(() => displayOrders())
+                .catch(error => console.error('Erro ao deletar pedido:', error));
+        }
+
+        document.getElementById("cancelOrderBtn").addEventListener("click", function () {
+            pedidoAtual = null;
+            document.getElementById("orderForm").reset();
+            this.style.display = "none";
+        });
+
+        window.onload = function() {
+            displayOrders();
+        };
+    </script>
+
+</body>
+</html>
